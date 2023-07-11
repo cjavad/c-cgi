@@ -1,0 +1,14 @@
+[Unit]
+Description=Simple server for running CGI applications over FastCGI
+Requires=fcgiwrap.socket
+
+[Service]
+ExecStart=/usr/bin/fcgiwrap
+User=www-data
+Group=www-data
+Environment='FCGI_CHILDREN=10'
+Environment='FCGI_SOCKET_PATH=/var/run/fcgiwrap.socket'
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
