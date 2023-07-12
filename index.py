@@ -21,7 +21,7 @@ def random_hash_function():
 
 def internal_server_error(message: str):
     print("Status: 500 Internal Server Error\r")
-    print("Content-type: text/html\r<n")
+    print("Content-type: text/html\r\n")
     print(message)
     exit()
 
