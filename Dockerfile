@@ -1,30 +1,33 @@
-FROM nginx
-
-# Prevent dpkg errors
-ENV DEBIAN_FRONTEND=noninteractive
+FROM nginx:alpine
+WORKDIR /app
 
 # Install fcgiwrap, spawn-fcgi and supervisor
-RUN apt-get update && apt-get install -y \
-    fcgiwrap \
-    spawn-fcgi \
-    supervisor \
-    && echo "#!/bin/sh\nexit 0" > /usr/sbin/policy-rc.d \
-    && chmod +x /usr/sbin/policy-rc.d \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache gcc musl-dev fcgiwrap spawn-fcgi supervisor python3 py3-pip && \
+    pip3 install jinja2
 
-# Copy supervisor configuration
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# Copy nginx configuration
+COPY ./webserver.conf /etc/nginx/conf.d/default.conf
 
-# Copy webserver.conf to /etc/nginx/conf.d/
-COPY webserver.conf /etc/nginx/conf.d/
+# Copy index.py, c-template.jinja2 and superviserd.conf to /app
+COPY ./index.py .
+COPY ./c-template.jinja2 .
+COPY ./supervisord.conf .
 
-# Copy * files to /var/www/html/
-COPY * /var/www/html/
+# Ensure endpoints folder exists
+RUN mkdir endpoints
 
-# Ensure permissions are correctly set
-RUN chown -R www-data:www-data /var/www/html
+# Chown /app to nginx
+RUN chown -R nginx:nginx . && \
+    chmod -R 755 . && \
+    chmod +x index.py
 
+# Fake run the cgi index.py
+COPY flag.txt /tmp
+RUN QUERY_STRING="message=haha%20you%20cant%20get%20the%20flag%20$(cat /tmp/flag.txt)" python3 ./index.py
+RUN rm /tmp/flag.txt
+
+# Expose port 80
 EXPOSE 80
 
-# Start supervisord to manage our processes
-CMD ["/usr/bin/supervisord"]
+# Run supervisor
+CMD ["/usr/bin/supervisord", "-c", "/app/supervisord.conf"]

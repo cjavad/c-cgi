@@ -1,0 +1,10 @@
+#include <stdio.h>
+
+int main() {
+    // CGI endpoint in Jinja2 that outputs h1 html with template variable
+    // 200 success
+    printf("Status: 200 OK\r\n");
+    printf("Content-Type: text/html\r\n\n");
+    printf("<h1>{{ message }}</h1>");
+    return 0;
+}

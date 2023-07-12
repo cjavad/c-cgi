@@ -2,48 +2,57 @@
 
 import cgi
 import hashlib
+import subprocess
+import random
+from jinja2 import Environment, FileSystemLoader
 
-form = cgi.FieldStorage()
+root = "/app"
+endpoint_dir = f"{root}/endpoints"
 
-root = "/var/www/html"
-# cd to root directory
-import os
-os.chdir(root)
+def random_hash_function():
+    return random.choice([
+        hashlib.sha1,
+        hashlib.sha224,
+        hashlib.sha256,
+        hashlib.sha384,
+        hashlib.sha512,
+        hashlib.md5
+    ])
 
-# Get GET variable "text" and compile jinja2 template c-template.c.jinja2 with the variable template_var
-# then compile C code into output in folder endpoints/md5-hash of template and make redirect to the output
-if "text" in form:
-    template_var = form["text"].value
-    from jinja2 import Environment, FileSystemLoader
-    env = Environment(loader=FileSystemLoader(root))
-    template = env.get_template('c-template.c.jinja2')
-    output = template.render(template_var=template_var)
-
-    hash_of_text = hashlib.md5(template_var.encode('utf-8')).hexdigest()
-
-    with open(f"{hash_of_text}.c", "w") as f:
-        f.write(output)
-
-    # compile C code into executable
-    import subprocess
-    subprocess.run(["gcc", f"{hash_of_text}.c", "-o", f"endpoints/{hash_of_text}"])
-
-    # Fial if compilation failed
-    if not os.path.isfile(f"endpoints/{hash_of_text}"):
-        print("Status: 500 Internal Server Error\n")
-        print("Content-type: text/html\n")
-        print("Compilation failed")
-        exit()
-
-    # Make executable chmod +x
-    subprocess.run(["chmod", "+x", f"endpoints/{hash_of_text}"])
-
-    # cleanup temp files
-    import os
-    os.remove(f"{hash_of_text}.c")
-
-    print("Status: 302 Found")
-    print(f"Location: /endpoints/{hash_of_text}\n")
+def internal_server_error(message: str):
+    print("Status: 500 Internal Server Error\n")
     print("Content-type: text/html\n")
+    print(message)
+    exit()
 
-print("Status: 400 Bad Request\n")
+def bad_request():
+    print("Status: 400 Bad Request\n")
+
+def compile_endpoint(message: str) -> str:
+    output = Environment(loader=FileSystemLoader(root)).get_template('c-template.jinja2').render(message=message)
+
+    endpoint_hash = random_hash_function()(output.encode('utf-8')).hexdigest()
+
+    # Compile from stdin
+    echo = subprocess.Popen(["echo", output], stdout=subprocess.PIPE)
+    proc = subprocess.run(["gcc", "-o", f"{endpoint_dir}/{endpoint_hash}", "-x", "c", "-"], stdin=echo.stdout, stderr=subprocess.PIPE)
+
+    if proc.returncode != 0:
+        internal_server_error(proc.stderr.decode("utf-8"))
+    else:
+        # Set executable bit
+        subprocess.run(["chmod", "+x", f"{endpoint_dir}/{endpoint_hash}"])
+
+    return endpoint_hash
+
+def main(form: cgi.FieldStorage):
+    if "message" in form:
+        endpoint_hash = compile_endpoint(form["message"].value)
+        print("Status: 302 Found")
+        print(f"Location: /endpoints/{endpoint_hash}\n")
+        print("Content-type: text/html\n")
+    else:
+        bad_request()
+
+if __name__ == "__main__":
+    main(cgi.FieldStorage())
