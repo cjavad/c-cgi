@@ -20,13 +20,13 @@ def random_hash_function():
     ])
 
 def internal_server_error(message: str):
-    print("Status: 500 Internal Server Error\n")
-    print("Content-type: text/html\n")
+    print("Status: 500 Internal Server Error\r")
+    print("Content-type: text/html\r<n")
     print(message)
     exit()
 
 def bad_request():
-    print("Status: 400 Bad Request\n")
+    print("Status: 400 Bad Request\r\n")
 
 def compile_endpoint(message: str) -> str:
     output = Environment(loader=FileSystemLoader(root)).get_template('c-template.jinja2').render(message=message)
@@ -48,9 +48,9 @@ def compile_endpoint(message: str) -> str:
 def main(form: cgi.FieldStorage):
     if "message" in form:
         endpoint_hash = compile_endpoint(form["message"].value)
-        print("Status: 302 Found")
-        print(f"Location: /endpoints/{endpoint_hash}\n")
-        print("Content-type: text/html\n")
+        print("Status: 302 Found\r")
+        print(f"Location: /endpoints/{endpoint_hash}\r")
+        print("Content-type: text/html\r\n")
     else:
         bad_request()
 
